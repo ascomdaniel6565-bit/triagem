@@ -326,10 +326,10 @@
         <h1>Resultado recebido</h1>
         <p class="center" id="resRotulo">Lista</p>
         <div class="summary">
-          <div class="stat g"><div class="num" id="resEnviar">0</div><div class="lbl">Enviar</div></div>
-          <div class="stat r"><div class="num" id="resNao">0</div><div class="lbl">Não enviar</div></div>
-          <div class="stat"><div class="num" id="resPend">0</div><div class="lbl">Pendentes</div></div>
+          <div class="stat g"><div class="num" id="resKeep">0</div><div class="lbl">Na lista final</div></div>
+          <div class="stat r"><div class="num" id="resNao">0</div><div class="lbl">Excluídos</div></div>
         </div>
+        <p class="note" id="resBreakdown" style="text-align:center;margin-top:0"></p>
         <div class="btn-row">
           <button class="btn primary" id="resTxt">Baixar .txt</button>
           <button class="btn primary" id="resCsv">Baixar .csv</button>
@@ -338,7 +338,7 @@
           <button class="btn ghost" id="resCopy">Copiar lista</button>
           <button class="btn ghost" id="resHome">Início</button>
         </div>
-        <p class="note">Baixa apenas os contatos marcados como <b>Enviar</b> (nome e telefone).</p>
+        <p class="note">Baixa a <b>lista final</b>: todos os contatos, menos os marcados como <b>Não enviar</b> (nome e telefone).</p>
       </div>
     </section>
 
@@ -487,7 +487,7 @@
     if(R.idx>=n()){
       showStage("reviewerDone");
       $("rdEnviar").textContent=c.enviar; $("rdNao").textContent=c.nao; $("rdPend").textContent=c.pend;
-      $("rdSub").textContent = c.pend>0 ? ("Faltam "+c.pend+" sem marcar — você pode enviar assim mesmo ou continuar.") : "Toque abaixo para enviar ao organizador.";
+      $("rdSub").textContent = "Só quem você marcar como “Não enviar” fica de fora. Todo o resto entra na lista, inclusive os que você não marcou.";
       $("posAtual").textContent=n(); $("posTotal").textContent=n();
       return;
     }
@@ -528,11 +528,13 @@
 
   /* ---------- reviewer: send result ---------- */
   function montarResultado(){
-    var y=[]; var nao=0, pend=0;
+    var keep=[], e=0, pend=0, nao=0;
     for(var i=0;i<n();i++){ var c=R.contatos[i];
-      if(c.status==="enviar") y.push([c.nome,c.telRaw]);
-      else if(c.status==="nao") nao++; else pend++; }
-    return { v:1, id:R.id, r:R.rotulo, y:y, n:nao, p:pend };
+      if(c.status==="nao"){ nao++; continue; }
+      keep.push([c.nome,c.telRaw]);
+      if(c.status==="enviar") e++; else pend++;
+    }
+    return { v:1, id:R.id, r:R.rotulo, keep:keep, e:e, p:pend, x:nao };
   }
   async function enviarResultado(){
     var res=montarResultado();
@@ -552,11 +554,11 @@
 
   /* ---------- RESULT view ---------- */
   var RES=null;
-  function montarTxtRes(){ return RES.y.map(function(p){ return p[0]+"\t"+p[1]; }).join("\n")+"\n"; }
+  function montarTxtRes(){ return RES.keep.map(function(p){ return p[0]+"\t"+p[1]; }).join("\n")+"\n"; }
   function csvCampo(s){ s=String(s==null?"":s); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }
-  function montarCsvRes(){ var l=["nome,telefone"]; RES.y.forEach(function(p){ l.push(csvCampo(p[0])+","+csvCampo(p[1])); }); return l.join("\n")+"\n"; }
+  function montarCsvRes(){ var l=["nome,telefone"]; RES.keep.forEach(function(p){ l.push(csvCampo(p[0])+","+csvCampo(p[1])); }); return l.join("\n")+"\n"; }
   async function baixar(nomeArq,conteudo){
-    if(!RES||!RES.y.length){ toast("Nenhum contato para enviar nesta lista."); return; }
+    if(!RES||!RES.keep.length){ toast("Nenhum contato na lista final."); return; }
     try{
       var blob=new Blob([conteudo],{type:"text/plain;charset=utf-8"});
       var url=URL.createObjectURL(blob);
@@ -571,7 +573,11 @@
   function startResult(obj){
     RES=obj; $("hdr").classList.add("hidden"); setView("result"); showStage("resultView");
     $("resRotulo").textContent=obj.r||"Lista";
-    $("resEnviar").textContent=(obj.y||[]).length; $("resNao").textContent=obj.n||0; $("resPend").textContent=obj.p||0;
+    var keep=obj.keep||[];
+    $("resKeep").textContent=keep.length;
+    $("resNao").textContent=obj.x||0;
+    var e=obj.e||0, p=obj.p||0;
+    $("resBreakdown").textContent="Inclui "+e+" marcado(s) “Enviar” e "+p+" sem marcar (mantidos por padrão).";
   }
 
   /* ---------- REVIEWER start ---------- */
@@ -742,7 +748,7 @@
   // result
   $("resTxt").addEventListener("click", function(){ baixar("contatos-enviar.txt", montarTxtRes()); });
   $("resCsv").addEventListener("click", function(){ baixar("contatos-enviar.csv", montarCsvRes()); });
-  $("resCopy").addEventListener("click", async function(){ if(!RES||!RES.y.length){ toast("Nada para copiar."); return; } var ok=await copiar(montarTxtRes()); toast(ok?"Lista copiada.":"Não consegui copiar."); });
+  $("resCopy").addEventListener("click", async function(){ if(!RES||!RES.keep.length){ toast("Nada para copiar."); return; } var ok=await copiar(montarTxtRes()); toast(ok?"Lista copiada.":"Não consegui copiar."); });
   $("resHome").addEventListener("click", startOrganizer);
   // error
   $("errHome").addEventListener("click", startOrganizer);
