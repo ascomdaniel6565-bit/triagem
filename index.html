@@ -58,6 +58,13 @@
 
   .meta-row{display:none;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
   body[data-view="reviewer"] .meta-row{display:flex}
+  .mode-row{display:none;align-items:center;gap:10px;margin-top:10px;font-size:13px;color:var(--muted)}
+  body[data-view="reviewer"] .mode-row{display:flex}
+  .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:10px;overflow:hidden;margin-left:auto}
+  .seg button{border:none;background:var(--surface-2);color:var(--muted);font-size:13px;font-weight:600;padding:7px 13px;cursor:pointer}
+  .seg button+button{border-left:1px solid var(--line-strong)}
+  .seg button.active[data-mode="enviar"]{background:var(--enviar);color:#fff}
+  .seg button.active[data-mode="nao"]{background:var(--nao);color:#fff}
   .counts{display:flex;gap:6px;flex-wrap:wrap}
   .chip{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:500;padding:3px 9px;border-radius:999px;
     background:var(--surface-2);border:1px solid var(--line);color:var(--muted)}
@@ -159,6 +166,8 @@
     color:var(--muted);font-size:13px;font-family:ui-monospace,Menlo,monospace}
   .linkbox button{flex:0 0 auto;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface-2);padding:0 14px;font-size:13px;font-weight:600}
   .linkbox button:active{background:var(--line)}
+  .linkmini{border:1px solid var(--line-strong);border-radius:8px;background:var(--surface-2);padding:2px 8px;font-size:12.5px;font-weight:600;cursor:pointer}
+  .linkmini:active{background:var(--line)}
 
   .hist{margin-top:8px;text-align:left}
   .hist-item{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:var(--surface-2)}
@@ -188,9 +197,9 @@
         <input id="busca" type="search" inputmode="search" autocomplete="off" spellcheck="false" placeholder="Buscar nome ou telefone" aria-label="Buscar contato">
         <div class="results" id="resultados" role="listbox"></div>
       </div>
-      <button class="icon-btn" id="sendResultTop">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
-        Resultado
+      <button class="icon-btn" id="sendResultTop" style="background:var(--focus);color:#fff;border-color:var(--focus)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        Concluir
       </button>
     </div>
     <div class="meta-row">
@@ -200,6 +209,13 @@
         <span class="chip"><span class="dot m"></span><b id="cPend">0</b> pendentes</span>
       </div>
       <div class="position"><b id="posAtual">0</b> / <span id="posTotal">0</span></div>
+    </div>
+    <div class="mode-row">
+      <span class="lbl">Não marcados serão:</span>
+      <div class="seg" id="segModo">
+        <button type="button" data-mode="enviar" class="active">Enviar</button>
+        <button type="button" data-mode="nao">Não enviar</button>
+      </div>
     </div>
   </header>
 
@@ -267,9 +283,15 @@
 
     <!-- ORGANIZER: LINK READY -->
     <section class="stage hidden" id="orgLink">
-      <div class="panel">
-        <h1>Link pronto</h1>
-        <p class="center" id="linkRotulo">Lista</p>
+      <div class="panel left">
+        <h1>Lista pronta — falta subir o arquivo</h1>
+        <p id="linkRotulo">Lista</p>
+        <ol style="margin:0 0 16px;padding-left:20px;line-height:1.7;font-size:14.5px">
+          <li>O arquivo <b id="arqNome">lista.json</b> foi baixado. <button class="linkmini" id="reArqBtn" type="button">Baixar de novo</button></li>
+          <li>No seu GitHub: <b>Add file → Upload files</b>, arraste esse arquivo e clique em <b>Commit changes</b>.</li>
+          <li>Espere 1–2 minutos (o GitHub publica).</li>
+          <li>Pronto — envie o link abaixo para a pessoa.</li>
+        </ol>
         <div class="linkbox">
           <input id="linkOut" type="text" readonly>
           <button id="linkCopy">Copiar</button>
@@ -281,7 +303,7 @@
           </a>
           <button class="btn ghost block" id="linkDone">Concluir</button>
         </div>
-        <p class="note" id="linkWarn"></p>
+        <p class="note">O link é curto porque a lista mora no arquivo que você subiu — só envie depois de subir e esperar a publicação.</p>
       </div>
     </section>
 
@@ -304,9 +326,8 @@
         <h1 id="rdTitle">Tudo revisado</h1>
         <p class="center" id="rdSub"></p>
         <div class="summary">
-          <div class="stat g"><div class="num" id="rdEnviar">0</div><div class="lbl">Enviar</div></div>
-          <div class="stat r"><div class="num" id="rdNao">0</div><div class="lbl">Não enviar</div></div>
-          <div class="stat"><div class="num" id="rdPend">0</div><div class="lbl">Pendentes</div></div>
+          <div class="stat g"><div class="num" id="rdKeep">0</div><div class="lbl">Entram na lista</div></div>
+          <div class="stat r"><div class="num" id="rdNao">0</div><div class="lbl">Você excluiu</div></div>
         </div>
         <div class="btn-col">
           <a class="btn wa block" id="rdWa" target="_blank" rel="noopener">
@@ -342,12 +363,22 @@
       </div>
     </section>
 
+    <!-- LOADING -->
+    <section class="stage hidden" id="loadingView">
+      <div class="panel">
+        <p class="center" style="margin:0">Carregando lista…</p>
+      </div>
+    </section>
+
     <!-- ERROR -->
     <section class="stage hidden" id="errView">
       <div class="panel">
         <h1>Não consegui abrir</h1>
         <p class="center" id="errMsg">O link ou código parece incompleto.</p>
-        <button class="btn ghost block" id="errHome">Ir para o início</button>
+        <div class="btn-col">
+          <button class="btn primary block hidden" id="errRetry">Tentar de novo</button>
+          <button class="btn ghost block" id="errHome">Ir para o início</button>
+        </div>
       </div>
     </section>
   </main>
@@ -413,18 +444,16 @@
     if(flag==="G"){ if(typeof DecompressionStream==="undefined") throw new Error("sem gzip"); bytes=await gunzip(bytes); }
     return JSON.parse(new TextDecoder().decode(bytes));
   }
-  async function makeLink(kind,obj){ return baseUrl() + "#" + kind + "=" + await enc(obj); }
-  async function makeCode(kind,obj){ return kind + "=" + await enc(obj); }
   // extrai {kind,payload} de um link ou código colado
   function extrair(raw){
     if(!raw) return null;
-    var m = raw.match(/(?:^|[#?&\s])(res|r)=([GR][A-Za-z0-9\-_]+)/);
+    var m = raw.match(/(?:^|[#?&\s])(res|r)=([A-Za-z0-9\-_]+)/);
     if(!m) return null;
     return { kind:m[1], payload:m[2] };
   }
 
   /* ---------- reviewer state ---------- */
-  var R = { id:"", rotulo:"", wa:"", base:"", contatos:[], idx:0 };
+  var R = { id:"", rotulo:"", wa:"", base:"", contatos:[], idx:0, modo:"enviar" };
   var n = function(){ return R.contatos.length; };
 
   function parseTxt(texto){
@@ -453,14 +482,17 @@
   function progKey(){ return "conv_prog_"+R.id; }
   function salvarProg(){
     var marks=R.contatos.map(function(c){ return c.status||0; });
-    lsSet(progKey(), JSON.stringify({ idx:R.idx, marks:marks }));
+    lsSet(progKey(), JSON.stringify({ idx:R.idx, marks:marks, modo:R.modo }));
   }
   function carregarProg(){
     var raw=lsGet(progKey()); if(!raw) return;
     try{ var s=JSON.parse(raw);
-      if(s&&Array.isArray(s.marks)){ for(var i=0;i<R.contatos.length&&i<s.marks.length;i++){ if(s.marks[i]) R.contatos[i].status=s.marks[i]; } R.idx=s.idx||0; }
+      if(s&&Array.isArray(s.marks)){ for(var i=0;i<R.contatos.length&&i<s.marks.length;i++){ if(s.marks[i]) R.contatos[i].status=s.marks[i]; } R.idx=s.idx||0; if(s.modo==="nao"||s.modo==="enviar") R.modo=s.modo; }
     }catch(e){}
   }
+  // regra: no modo "nao", só os marcados "enviar" entram; no modo "enviar", entra tudo que não for "nao"
+  function incluiStatus(s){ return R.modo==="nao" ? (s==="enviar") : (s!=="nao"); }
+  function keptIndices(){ var k=[]; for(var i=0;i<n();i++){ if(incluiStatus(R.contatos[i].status)) k.push(i); } return k; }
 
   /* ---------- reviewer navigation ---------- */
   function proximoIndice(from){ for(var i=from+1;i<n();i++) return i; return n(); }
@@ -475,7 +507,7 @@
 
   /* ---------- views ---------- */
   function setView(v){ document.body.setAttribute("data-view",v); }
-  function hideAllStages(){ ["orgHome","orgNew","orgLink","cardStage","reviewerDone","resultView","errView"].forEach(function(id){ $(id).classList.add("hidden"); }); }
+  function hideAllStages(){ ["orgHome","orgNew","orgLink","cardStage","reviewerDone","resultView","errView","loadingView"].forEach(function(id){ $(id).classList.add("hidden"); }); }
   function showStage(id){ hideAllStages(); $(id).classList.remove("hidden"); }
 
   function renderReviewer(){
@@ -483,12 +515,17 @@
     setView("reviewer");
     var c=contarR();
     $("cEnviar").textContent=c.enviar; $("cNao").textContent=c.nao; $("cPend").textContent=c.pend;
+    var seg=$("segModo"); if(seg){ var bs=seg.querySelectorAll("button"); for(var s=0;s<bs.length;s++){ bs[s].classList.toggle("active", bs[s].getAttribute("data-mode")===R.modo); } }
 
     if(R.idx>=n()){
       showStage("reviewerDone");
-      $("rdEnviar").textContent=c.enviar; $("rdNao").textContent=c.nao; $("rdPend").textContent=c.pend;
-      $("rdSub").textContent = "Só quem você marcar como “Não enviar” fica de fora. Todo o resto entra na lista, inclusive os que você não marcou.";
+      var entram=keptIndices().length, fora=n()-entram;
+      $("rdKeep").textContent=entram; $("rdNao").textContent=fora;
+      $("rdSub").textContent = R.modo==="nao"
+        ? "Entram só os que você marcou “Enviar”. Todo o resto fica de fora, inclusive os que você não marcou."
+        : "Só quem você marcar como “Não enviar” fica de fora. Todo o resto entra na lista, inclusive os que você não marcou.";
       $("posAtual").textContent=n(); $("posTotal").textContent=n();
+      enviarResultado();
       return;
     }
     showStage("cardStage");
@@ -527,23 +564,32 @@
   }
 
   /* ---------- reviewer: send result ---------- */
-  function montarResultado(){
-    var keep=[], e=0, pend=0, nao=0;
-    for(var i=0;i<n();i++){ var c=R.contatos[i];
-      if(c.status==="nao"){ nao++; continue; }
-      keep.push([c.nome,c.telRaw]);
-      if(c.status==="enviar") e++; else pend++;
-    }
-    return { v:1, id:R.id, r:R.rotulo, keep:keep, e:e, p:pend, x:nao };
+  // três representações possíveis do resultado; manda a menor
+  function resultadoObjs(){
+    var t=n(); var kept=keptIndices();
+    var keptSet={}; for(var a=0;a<kept.length;a++) keptSet[kept[a]]=1;
+    var exc=[]; for(var i=0;i<t;i++){ if(!keptSet[i]) exc.push(i); }
+    var bytes=new Uint8Array(Math.ceil(t/8));
+    for(var j=0;j<kept.length;j++){ var ix=kept[j]; bytes[ix>>3]|=(1<<(ix&7)); } // bit = incluído
+    return [
+      { v:1, id:R.id, t:t, m:"inc",  k:kept },
+      { v:1, id:R.id, t:t, m:"exc",  k:exc },
+      { v:1, id:R.id, t:t, m:"bits", b:b64urlFromBytes(bytes) }
+    ];
+  }
+  async function resultadoEnc(){
+    var cands=resultadoObjs(), best=null;
+    for(var i=0;i<cands.length;i++){ var e=await enc(cands[i]); if(best===null || e.length<best.length) best=e; }
+    return best;
   }
   async function enviarResultado(){
-    var res=montarResultado();
-    var link = baseUrl() + "#res=" + await enc(res);
-    var msg = "Resultado da triagem — "+(R.rotulo||"lista")+"\n"+link;
+    var code = await resultadoEnc();
+    var link = baseUrl() + "#res=" + code;
+    var msg = "Pronto! Resultado da lista "+(R.rotulo||"")+":\n"+link;
     var a=$("rdWa");
     if(R.wa){ a.href="https://wa.me/"+soDigitos(R.wa)+"?text="+encodeURIComponent(msg); a.classList.remove("hidden"); }
     else { a.classList.add("hidden"); }
-    $("rdCopy").onclick=async function(){ var ok=await copiar("res="+await enc(res)); toast(ok?"Código copiado.":"Não consegui copiar."); };
+    $("rdCopy").onclick=async function(){ var ok=await copiar("res="+code); toast(ok?"Código copiado.":"Não consegui copiar."); };
   }
 
   /* ---------- clipboard ---------- */
@@ -554,6 +600,12 @@
 
   /* ---------- RESULT view ---------- */
   var RES=null;
+  async function fetchLista(id){
+    if(!id || !/^[a-z0-9]+$/i.test(id)) throw new Error("id inválido");
+    var resp = await fetch(id + ".json", { cache:"no-store" });
+    if(!resp.ok) throw new Error("http "+resp.status);
+    return await resp.json();
+  }
   function montarTxtRes(){ return RES.keep.map(function(p){ return p[0]+"\t"+p[1]; }).join("\n")+"\n"; }
   function csvCampo(s){ s=String(s==null?"":s); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }
   function montarCsvRes(){ var l=["nome,telefone"]; RES.keep.forEach(function(p){ l.push(csvCampo(p[0])+","+csvCampo(p[1])); }); return l.join("\n")+"\n"; }
@@ -570,31 +622,74 @@
       var ok=await copiar(conteudo); toast(ok?"Download falhou — lista copiada.":"Não foi possível baixar.");
     }
   }
-  function startResult(obj){
-    RES=obj; $("hdr").classList.add("hidden"); setView("result"); showStage("resultView");
-    $("resRotulo").textContent=obj.r||"Lista";
-    var keep=obj.keep||[];
-    $("resKeep").textContent=keep.length;
-    $("resNao").textContent=obj.x||0;
-    var e=obj.e||0, p=obj.p||0;
-    $("resBreakdown").textContent="Inclui "+e+" marcado(s) “Enviar” e "+p+" sem marcar (mantidos por padrão).";
+  async function startResult(obj){
+    $("hdr").classList.add("hidden"); setView("result"); showStage("loadingView");
+    try{
+      var lista=await fetchLista(obj.id);
+      var contatos=lista.c||[];
+      var total=contatos.length;
+      var modo = obj.m || "exc";                 // formato antigo usava x = excluídos
+      var idxs = obj.k || obj.x || [];
+      var keep=[];
+      if(modo==="inc"){
+        for(var a=0;a<idxs.length;a++){ var ci=idxs[a]; if(contatos[ci]) keep.push([contatos[ci][0]||"(sem nome)", soDigitos(contatos[ci][1]||"")]); }
+      } else if(modo==="bits"){
+        var bm=bytesFromB64url(obj.b||"");
+        for(var g=0;g<total;g++){ if( (bm[g>>3]>>(g&7))&1 ) keep.push([contatos[g][0]||"(sem nome)", soDigitos(contatos[g][1]||"")]); }
+      } else {
+        var excl={}; idxs.forEach(function(i){ excl[i]=1; });
+        for(var i=0;i<total;i++){ if(!excl[i]) keep.push([contatos[i][0]||"(sem nome)", soDigitos(contatos[i][1]||"")]); }
+      }
+      RES={ r:lista.r||"", keep:keep };
+      showStage("resultView");
+      $("resRotulo").textContent=lista.r||"Lista";
+      $("resKeep").textContent=keep.length;
+      $("resNao").textContent=total-keep.length;
+      if(obj.t && obj.t!==total){
+        $("resBreakdown").textContent="Atenção: a lista atual tem "+total+" contatos, mas a revisão foi feita sobre "+obj.t+" — o arquivo pode ter mudado. Confira.";
+      } else {
+        $("resBreakdown").textContent=keep.length+" na lista final · "+(total-keep.length)+" excluído(s).";
+      }
+    }catch(e){
+      startError("Não encontrei a lista original ("+(obj.id||"?")+") no seu site. Ela pode estar publicando ainda (espere 1–2 min) ou foi removida.", true);
+    }
   }
 
   /* ---------- REVIEWER start ---------- */
-  function startReviewer(obj){
-    R.id=obj.id||("l"+Date.now()); R.rotulo=obj.r||""; R.wa=obj.w||""; R.base=baseUrl();
-    R.contatos=(obj.c||[]).map(function(pair){ return { nome:pair[0]||"(sem nome)", telRaw:soDigitos(pair[1]||""), status:0 }; });
-    R.idx=0;
-    if(!R.contatos.length){ startError("A lista veio vazia."); return; }
-    carregarProg();
-    renderReviewer();
-    enviarResultado();
+  async function startReviewer(id){
+    $("hdr").classList.add("hidden"); setView("organizer"); showStage("loadingView");
+    try{
+      var lista=await fetchLista(id);
+      R.id=id; R.rotulo=lista.r||""; R.wa=lista.w||""; R.base=baseUrl();
+      R.contatos=(lista.c||[]).map(function(pair){ return { nome:pair[0]||"(sem nome)", telRaw:soDigitos(pair[1]||""), status:0 }; });
+      R.idx=0;
+      if(!R.contatos.length){ startError("A lista veio vazia."); return; }
+      carregarProg();
+      renderReviewer();
+    }catch(e){
+      startError("Não consegui abrir a lista ("+id+"). Se o organizador acabou de subir o arquivo, espere 1–2 min e toque em Tentar de novo.", true);
+    }
   }
 
   /* ---------- ORGANIZER ---------- */
   var novaArquivoContatos=null;   // lista já filtrada (usada no link)
   var novaArquivoRaw=null;        // lista completa do arquivo
   var novaArquivoFilename="";
+
+  function novoId(){
+    var s=(Date.now().toString(36).slice(-3)+Math.random().toString(36).slice(2,6)).toLowerCase().replace(/[^a-z0-9]/g,"");
+    return s || ("l"+Math.floor(Math.random()*1e6).toString(36));
+  }
+  function baixarJson(nome, conteudo){
+    try{
+      var blob=new Blob([conteudo],{type:"application/json;charset=utf-8"});
+      var url=URL.createObjectURL(blob);
+      var a=document.createElement("a"); a.href=url; a.download=nome;
+      document.body.appendChild(a); a.click();
+      setTimeout(function(){ try{ URL.revokeObjectURL(url); document.body.removeChild(a); }catch(e){} },150);
+      toast("Arquivo "+nome+" baixado");
+    }catch(e){ toast("Não consegui baixar o arquivo."); }
+  }
 
   // Lê o DDD quando o número está no padrão 55 + DDD + telefone.
   function dddInfo(telRaw){
@@ -639,16 +734,23 @@
     var raw=lsGet("conv_hist"); var hist=[];
     try{ hist=raw?JSON.parse(raw):[]; }catch(e){ hist=[]; }
     if(!hist.length){ wrap.innerHTML=""; return; }
-    var html='<div class="divider"></div><h2>Listas que você criou</h2><p style="margin:6px 0 12px">Reabra para copiar o link de novo.</p>';
-    for(var i=hist.length-1;i>=0;i--){ var it=hist[i];
-      html+='<div class="hist-item"><div class="h-main"><div class="h-name">'+escapeHtml(it.r||"Lista")+'</div><div class="h-sub">'+(it.total||0)+' contatos</div></div><button data-i="'+i+'">Copiar link</button></div>';
+    var html='<div class="divider"></div><h2>Listas que você criou</h2><p style="margin:6px 0 12px">Copie o link de novo ou rebaixe o arquivo para subir no GitHub.</p>';
+    for(var i=hist.length-1;i>=0;i--){ var it=hist[i]; var pid=(it.payload&&it.payload.id)||"";
+      html+='<div class="hist-item"><div class="h-main"><div class="h-name">'+escapeHtml(it.r||"Lista")+'</div><div class="h-sub">'+(it.total||0)+' contatos · '+escapeHtml(pid)+'.json</div></div>'
+          +'<button data-copy="'+i+'">Link</button><button data-file="'+i+'">Arquivo</button></div>';
     }
     wrap.innerHTML=html;
-    wrap.querySelectorAll("button[data-i]").forEach(function(b){
+    wrap.querySelectorAll("button[data-copy]").forEach(function(b){
       b.addEventListener("click", async function(){
-        var it=hist[parseInt(b.getAttribute("data-i"),10)];
-        var link=await makeLink("r",it.payload);
+        var it=hist[parseInt(b.getAttribute("data-copy"),10)];
+        var link=baseUrl()+"#r="+(it.payload&&it.payload.id||"");
         var ok=await copiar(link); toast(ok?"Link copiado.":"Não consegui copiar.");
+      });
+    });
+    wrap.querySelectorAll("button[data-file]").forEach(function(b){
+      b.addEventListener("click", function(){
+        var it=hist[parseInt(b.getAttribute("data-file"),10)];
+        if(it.payload) baixarJson(it.payload.id+".json", JSON.stringify(it.payload));
       });
     });
   }
@@ -672,35 +774,35 @@
   }
   function validarNova(){ $("btnGerar").disabled = !(novaArquivoContatos && novaArquivoContatos.length && $("rotulo").value.trim()); }
 
-  async function gerarLink(){
+  async function gerarLista(){
     var wa=soDigitos($("waNum").value);
     if(wa) lsSet("conv_wa", $("waNum").value.trim());
     var dest=soDigitos($("destNum").value);
-    var id="l"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    var id=novoId();
     var payload={ v:1, id:id, r:$("rotulo").value.trim(), w:wa,
                   c: novaArquivoContatos.map(function(c){ return [c.nome, c.telRaw]; }) };
-    var link=await makeLink("r",payload);
     salvarHistorico(payload, payload.c.length);
+    baixarJson(id+".json", JSON.stringify(payload));
+    var link=baseUrl()+"#r="+id;
     $("linkRotulo").textContent = payload.r + " · " + payload.c.length + " contatos";
     $("linkOut").value=link;
-    var msg = "Oi! Dá uma olhada nessa lista e marque quem você quer chamar: \n"+link;
+    $("arqNome").textContent=id+".json";
+    $("reArqBtn").onclick=function(){ baixarJson(id+".json", JSON.stringify(payload)); };
+    var msg = "Oi! Dá uma olhada nessa lista e faça a sua seleção: \n"+link;
     $("linkWa").href = dest
       ? ("https://wa.me/"+dest+"?text="+encodeURIComponent(msg))
       : ("https://wa.me/?text="+encodeURIComponent(msg));
-    $("linkWarn").textContent = link.length>1800 ? "Obs.: a lista é grande e o link ficou longo; se o WhatsApp cortar, use “Copiar” e cole na conversa." : "";
     showStage("orgLink"); setView("organizer");
   }
 
   /* ---------- ERROR ---------- */
-  function startError(msg){ $("hdr").classList.add("hidden"); setView("error"); $("errMsg").textContent=msg||"O link ou código parece incompleto."; showStage("errView"); }
+  function startError(msg, retryable){ $("hdr").classList.add("hidden"); setView("error"); $("errMsg").textContent=msg||"O link ou código parece incompleto."; $("errRetry").classList.toggle("hidden", !retryable); showStage("errView"); }
 
   /* ---------- routing ---------- */
   async function abrirPayload(kind,payload){
-    try{ var obj=await dec(payload);
-      if(kind==="r") startReviewer(obj);
-      else if(kind==="res") startResult(obj);
-      else startOrganizer();
-    }catch(e){ startError("Não consegui ler os dados do link/código."); }
+    if(kind==="r"){ await startReviewer(payload); return; }
+    if(kind==="res"){ try{ var obj=await dec(payload); await startResult(obj); }catch(e){ startError("Não consegui ler o código do resultado."); } return; }
+    startOrganizer();
   }
   async function boot(){
     var frag = (location.hash||"").replace(/^#/,"");
@@ -714,6 +816,10 @@
   // reviewer
   $("enviarBtn").addEventListener("click", function(){ classificar("enviar"); });
   $("naoBtn").addEventListener("click", function(){ classificar("nao"); });
+  $("segModo").addEventListener("click", function(e){
+    var b=e.target.closest("button[data-mode]"); if(!b) return;
+    R.modo=b.getAttribute("data-mode"); salvarProg(); renderReviewer();
+  });
   $("backBtn").addEventListener("click", voltar);
   $("sendResultTop").addEventListener("click", function(){ R.idx=n(); renderReviewer(); });
   $("rdBack").addEventListener("click", function(){ var p=-1; for(var i=0;i<n();i++){ if(!R.contatos[i].status){ p=i; break; } } R.idx=(p>=0?p:0); renderReviewer(); });
@@ -733,7 +839,7 @@
   $("pickFile").addEventListener("click", function(){ $("fileInput").click(); });
   $("rotulo").addEventListener("input", validarNova);
   $("newCancel").addEventListener("click", startOrganizer);
-  $("btnGerar").addEventListener("click", gerarLink);
+  $("btnGerar").addEventListener("click", gerarLista);
   $("fileInput").addEventListener("change", function(e){
     var f=e.target.files&&e.target.files[0]; if(!f) return;
     var reader=new FileReader();
@@ -752,6 +858,7 @@
   $("resHome").addEventListener("click", startOrganizer);
   // error
   $("errHome").addEventListener("click", startOrganizer);
+  $("errRetry").addEventListener("click", function(){ location.reload(); });
 
   // keyboard (desktop)
   document.addEventListener("keydown", function(e){
