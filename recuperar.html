@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Recuperar triagem</title>
+<style>
+  :root{
+    --bg:#111214;--surface:#1c1d20;--surface-2:#232428;--ink:#f2f2f0;--muted:#a4a5ad;--faint:#75767e;
+    --line:#2c2d31;--line-strong:#3a3b40;--enviar:#22c55e;--nao:#fb5478;--focus:#8b93ff;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -14px rgba(0,0,0,.7);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%}
+  body{background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;
+    padding:calc(env(safe-area-inset-top,0px) + 20px) 16px calc(env(safe-area-inset-bottom,0px) + 24px);
+    display:flex;justify-content:center}
+  .wrap{width:100%;max-width:30rem}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:26px 22px;margin-bottom:16px}
+  h1{font-size:1.4rem;margin:0 0 6px}
+  p{color:var(--muted);font-size:14.5px;line-height:1.55;margin:0 0 14px}
+  .stats{display:flex;gap:10px;justify-content:center;margin:6px 0 4px;flex-wrap:wrap}
+  .stat{background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:12px 16px;min-width:82px;text-align:center}
+  .stat .num{font-weight:700;font-size:1.7rem;line-height:1;font-variant-numeric:tabular-nums}
+  .stat .lbl{font-size:12px;color:var(--muted);margin-top:5px}
+  .stat.g .num{color:var(--enviar)}.stat.r .num{color:var(--nao)}
+  .code{width:100%;min-height:96px;margin:14px 0 10px;padding:12px;border:1px solid var(--line-strong);border-radius:12px;
+    background:var(--surface-2);color:var(--ink);font-family:ui-monospace,Menlo,monospace;font-size:13px;word-break:break-all;resize:vertical}
+  .btn{display:block;width:100%;padding:15px;border:none;border-radius:13px;font-size:16px;font-weight:600;background:var(--focus);color:#08102a;cursor:pointer}
+  .btn:active{filter:brightness(.92)}
+  .ok{color:var(--enviar)}.bad{color:var(--nao)}
+  .note{font-size:12.5px;color:var(--faint);line-height:1.5;margin-top:14px}
+  .pick{display:block;width:100%;text-align:left;padding:13px;margin-bottom:8px;border:1px solid var(--line-strong);
+    border-radius:12px;background:var(--surface-2);color:var(--ink);font-size:14px;cursor:pointer}
+  .pick:active{background:var(--line)}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#fff;color:#111;padding:11px 18px;border-radius:12px;
+    font-size:14px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Recuperar triagem</h1>
+      <p id="intro">Lendo as marcações salvas neste navegador…</p>
+      <div id="content"></div>
+    </div>
+  </div>
+  <div class="toast" id="toast">Código copiado</div>
+
+<script>
+(function(){
+  "use strict";
+  var ALVO = "conv_prog_lmuomav5t7vh0"; // Lista de Rodrigo (identificador recuperado)
+
+  function $(id){ return document.getElementById(id); }
+  function b64url(bytes){ var b=""; for(var i=0;i<bytes.length;i++) b+=String.fromCharCode(bytes[i]); return btoa(b).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
+  function toast(m){ var t=$("toast"); t.textContent=m; t.classList.add("show"); setTimeout(function(){t.classList.remove("show");},2200); }
+
+  // acha todas as triagens salvas neste navegador
+  function acharSalvos(){
+    var out=[];
+    for(var i=0;i<localStorage.length;i++){
+      var k=localStorage.key(i);
+      if(k && k.indexOf("conv_prog_")===0){
+        try{
+          var s=JSON.parse(localStorage.getItem(k));
+          if(s && Array.isArray(s.marks)){
+            var env=0,nao=0,pend=0;
+            for(var j=0;j<s.marks.length;j++){ var v=s.marks[j]; if(v==="enviar")env++; else if(v==="nao")nao++; else pend++; }
+            out.push({ key:k, marks:s.marks, total:s.marks.length, env:env, nao:nao, pend:pend });
+          }
+        }catch(e){}
+      }
+    }
+    return out;
+  }
+
+  function montarCodigo(rec){
+    var total=rec.total;
+    var bytes=new Uint8Array(Math.ceil(total/8));
+    for(var i=0;i<total;i++){ if(rec.marks[i]==="nao") bytes[i>>3] |= (1<<(i&7)); }
+    return "REC1:"+total+":"+rec.nao+":"+b64url(bytes);
+  }
+
+  function mostrar(rec){
+    var codigo=montarCodigo(rec);
+    var html=""
+      + '<div class="stats">'
+      +   '<div class="stat g"><div class="num">'+rec.env+'</div><div class="lbl">Enviar</div></div>'
+      +   '<div class="stat r"><div class="num">'+rec.nao+'</div><div class="lbl">Não enviar</div></div>'
+      +   '<div class="stat"><div class="num">'+rec.pend+'</div><div class="lbl">Pendentes</div></div>'
+      + '</div>'
+      + '<p style="text-align:center;margin-top:12px">Total: <b>'+rec.total+'</b> contatos. Confira se estes números batem com a sua tela.</p>'
+      + '<p style="margin-top:14px">Código de recuperação (curto — não corrompe):</p>'
+      + '<textarea class="code" id="codeBox" readonly>'+codigo+'</textarea>'
+      + '<button class="btn" id="copyBtn">Copiar código</button>'
+      + '<p class="note">Toque em <b>Copiar código</b> e cole numa <b>mensagem de texto normal</b> do WhatsApp para o organizador (não como link). É curto de propósito, para não embaralhar no caminho.</p>';
+    $("intro").innerHTML = '<span class="ok">✓ Marcações encontradas.</span>';
+    $("content").innerHTML = html;
+    $("copyBtn").addEventListener("click", async function(){
+      var txt=$("codeBox").value;
+      try{ await navigator.clipboard.writeText(txt); toast("Código copiado"); }
+      catch(e){ var t=$("codeBox"); t.focus(); t.select(); try{ document.execCommand("copy"); toast("Código copiado"); }catch(e2){ toast("Selecione e copie manualmente"); } }
+    });
+  }
+
+  // início
+  var achados;
+  try{ achados = acharSalvos(); }
+  catch(e){ achados = null; }
+
+  if(achados===null){
+    $("intro").innerHTML = '<span class="bad">Não consegui acessar o armazenamento deste navegador.</span>';
+    $("content").innerHTML = '<p>Se você estiver em aba anônima/privada, abra numa aba normal e tente de novo.</p>';
+    return;
+  }
+
+  // prioriza a Lista de Rodrigo pelo identificador; senão, usa o que houver
+  var alvo=null;
+  for(var i=0;i<achados.length;i++){ if(achados[i].key===ALVO){ alvo=achados[i]; break; } }
+
+  if(alvo){ mostrar(alvo); return; }
+
+  if(achados.length===0){
+    $("intro").innerHTML = '<span class="bad">Nenhuma triagem salva foi encontrada neste navegador.</span>';
+    $("content").innerHTML = '<p>Isso acontece se as marcações foram feitas em <b>outro aparelho ou navegador</b>, em <b>aba anônima</b>, ou se os dados do navegador foram <b>limpos</b>. Sem elas, não há como recuperar por aqui.</p>';
+    return;
+  }
+
+  // não achou a lista específica, mas há outras salvas — deixa escolher
+  $("intro").innerHTML = 'Não achei exatamente a "Lista de Rodrigo", mas encontrei estas triagens salvas. Escolha a que bate com a sua tela:';
+  var html="";
+  for(var j=0;j<achados.length;j++){
+    var r=achados[j];
+    html += '<button class="pick" data-i="'+j+'">'+r.total+' contatos — '+r.env+' enviar, '+r.nao+' não enviar, '+r.pend+' pendentes</button>';
+  }
+  $("content").innerHTML = html;
+  var btns=$("content").querySelectorAll(".pick");
+  for(var b=0;b<btns.length;b++){
+    btns[b].addEventListener("click", function(){ mostrar(achados[parseInt(this.getAttribute("data-i"),10)]); });
+  }
+})();
+</script>
+</body>
+</html>
