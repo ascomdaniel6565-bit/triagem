@@ -640,6 +640,8 @@
         var excl={}; idxs.forEach(function(i){ excl[i]=1; });
         for(var i=0;i<total;i++){ if(!excl[i]) keep.push([contatos[i][0]||"(sem nome)", soDigitos(contatos[i][1]||"")]); }
       }
+      // embaralha a lista final (pares [nome, telefone] juntos — o match não se desfaz)
+      for(var q=keep.length-1; q>0; q--){ var w2=Math.floor(Math.random()*(q+1)); var tmp=keep[q]; keep[q]=keep[w2]; keep[w2]=tmp; }
       RES={ r:lista.r||"", keep:keep };
       showStage("resultView");
       $("resRotulo").textContent=lista.r||"Lista";
